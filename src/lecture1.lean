@@ -66,7 +66,7 @@ stuff
 
 def is_convergent (x : ℕ → ℝ) := ∃ a, tendsto x at_top (𝓝 a)
 
-lemma exists_limit_of_bdd_above_increasing {x : ℕ → ℝ} (A : ℝ) (hx₁ : ∀ n, x n ≤ x (n + 1)) 
+lemma is_convergent_of_increasing_of_bdd_above {x : ℕ → ℝ} (A : ℝ) (hx₁ : ∀ n, x n ≤ x (n + 1)) 
   (hx₂ : ∀ n, x n ≤ A) : is_convergent x :=
 begin
   set c := Sup (x '' set.univ) with hc,
@@ -97,7 +97,7 @@ begin
   linarith
 end
 
-lemma exists_limit_of_bdd_below_decreasing {x : ℕ → ℝ} (A : ℝ) (hx₁ : ∀ n, x (n + 1) ≤ x n) 
+lemma is_convergent_of_decreasing_of_bdd_below {x : ℕ → ℝ} (A : ℝ) (hx₁ : ∀ n, x (n + 1) ≤ x n) 
   (hx₂ : ∀ n, A ≤ x n) : is_convergent x := 
 begin
   set c := Inf (x '' set.univ) with hc,
@@ -283,31 +283,6 @@ begin
       ring }
 end .
 
-example {x : ℕ → ℝ} {a : ℝ} (ε : ℝ)
-  (hx₁ : ∀ (n : ℕ), x n ≠ 0)
-  (ha : a ≠ 0)
-  (hx₂ : ∀ (ε : ℝ),
-           ε > 0 →
-           (∃ (N : ℕ), ∀ (n : ℕ), n ≥ N → |x n - a| < ε))
-  (hε : ε > 0)
-  (hε' : 0 < |a| ^ 2 * ε / 2) :
-  ∃ (N : ℕ), ∀ (n : ℕ), n ≥ N → |a| / 2 ≤ |x n| :=
-begin
-  cases hx₂ (|a|/2) _ with N hN,
-  use N,
-  intros n hn,
-  specialize hN n hn,
-  rw abs_sub_lt_iff at hN,
-  by_cases hx : 0 ≤ x n; [rw abs_of_nonneg hx at *, { rw not_le at hx, rw abs_of_neg hx at * }];
-  { by_cases ha' : 0 ≤ a,
-    { rw [abs_of_nonneg ha'] at *,
-      linarith },
-    { rw [not_le] at ha',
-      rw [abs_of_neg ha'] at *,
-      linarith } },
-  linarith [abs_pos.mpr ha]
-end
-
 /-
 Lemma 1.1 (vi)
 
@@ -389,7 +364,7 @@ Lemma 1.2
 -/
 lemma tensto_one_div : tendsto (λ n, 1/(n + 1) : ℕ → ℝ) at_top (𝓝 0) :=
 begin
-  have h1 : ∃ a, tendsto (λ n, 1/(n + 1) : ℕ → ℝ) at_top (𝓝 a) := exists_limit_of_bdd_below_decreasing 0 _ _,
+  have h1 : ∃ a, tendsto (λ n, 1/(n + 1) : ℕ → ℝ) at_top (𝓝 a) := is_convergent_of_decreasing_of_bdd_below 0 _ _,
   cases h1 with a ha,
   have h2 : tendsto (λ n, 1/2 * (1/(n+1)) : ℕ → ℝ) at_top (𝓝 (1/2 * a)),
   { apply filter.tendsto.mul,
