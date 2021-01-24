@@ -64,6 +64,9 @@ Definition of the Supremum
 stuff
 -/
 
+/--
+We say that a sequence xₙ is convergent if there exists a such that xₙ → a as n → ∞
+-/
 def is_convergent (x : ℕ → ℝ) := ∃ a, tendsto x at_top (𝓝 a)
 
 lemma is_convergent_of_increasing_of_bdd_above {x : ℕ → ℝ} (A : ℝ) (hx₁ : ∀ n, x n ≤ x (n + 1)) 

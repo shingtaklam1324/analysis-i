@@ -6,8 +6,9 @@ open filter
 open_locale classical
 noncomputable theory
 
-lemma sandwich {x y z : ℕ → ℝ} {t : ℝ} (hx : tendsto x at_top (𝓝 t)) (hz : tendsto z at_top (𝓝 t))
-  (hxy : ∀ n, x n ≤ y n) (hyz : ∀ n, y n ≤ z n) : tendsto y at_top (𝓝 t) :=
+lemma tendsto_of_le_of_le {x y z : ℕ → ℝ} {t : ℝ} (hx : tendsto x at_top (𝓝 t)) 
+  (hz : tendsto z at_top (𝓝 t)) (hxy : ∀ n, x n ≤ y n) (hyz : ∀ n, y n ≤ z n) : 
+  tendsto y at_top (𝓝 t) :=
 begin
   rw tendsto_seq_iff at *,
   intros ε hε,
@@ -28,10 +29,41 @@ end
 
 /-
 Theorem 1.3 (Bolzano-Weierstrass)
+
+To prove this, we are going to use the proof given in lecture, that is, the one by halving the
+interval every time, and showing that we have an infinite number of elements no matter how small
+the interval becomes.
 -/
 namespace bolzano_weierstrass
 
-lemma step_aux {x : ℕ → ℝ} {a b : ℝ} (h : a ≤ b) 
+/-
+First, we define the inductive step. That is, given an interval [a, b], this returns either 
+  [a, (a+b)/2] or [(a+b)/2, b], depending on whether there is an infinite number of xₙ in the first
+  interval.
+-/
+def step (x : ℕ → ℝ) (a b : ℝ) : ℝ × ℝ :=
+if set.infinite {n | x n ∈ set.Icc a ((a+b)/2)} then
+  (a, (a + b)/2)
+else
+  ((a + b)/2, b)
+
+/-
+First, we show that the result of `step` still forms a well defined interval.
+-/
+lemma step_valid (x : ℕ → ℝ) {a b : ℝ} (h : a ≤ b) :
+  let p := step x a b in
+  p.1 ≤ p.2 :=
+begin
+  dsimp [step],
+  split_ifs with hp hp; linarith
+end
+
+/-
+Then, we show that the resulting interval still contains an infinite number of xₙs. To show this,
+note that it is not possible for both intervals to be finite, as their union is the original 
+interval, and if they are both finite then so is their union. Contradiction.
+-/
+lemma step_valid'_aux {x : ℕ → ℝ} {a b : ℝ} (h : a ≤ b) 
   (hx : set.infinite {n | x n ∈ set.Icc a b}) :
   set.infinite {n | x n ∈ set.Icc a ((a+b)/2)} ∨ set.infinite {n | x n ∈ set.Icc ((a+b)/2) b} :=
 begin
@@ -54,20 +86,6 @@ begin
   refine set.finite.union h.1 h.2,
 end
 
-def step (x : ℕ → ℝ) (a b : ℝ) : ℝ × ℝ :=
-if set.infinite {n | x n ∈ set.Icc a ((a+b)/2)} then
-  (a, (a + b)/2)
-else
-  ((a + b)/2, b)
-
-lemma step_valid (x : ℕ → ℝ) {a b : ℝ} (h : a ≤ b) :
-  let p := step x a b in
-  p.1 ≤ p.2 :=
-begin
-  dsimp [step],
-  split_ifs with hp hp; linarith
-end
-
 lemma step_valid' {x : ℕ → ℝ} {a b : ℝ} (h : a ≤ b) 
   (hx : set.infinite {n | x n ∈ set.Icc a b}) :
   let p := step x a b in
@@ -76,9 +94,12 @@ begin
   dsimp [step],
   split_ifs with hp hp,
   { exact hp },
-  { exact or.resolve_left (step_aux h hx) hp }
+  { exact or.resolve_left (step_valid'_aux h hx) hp }
 end
 
+/-
+Next, we show that the new interval is contained within the previous interval
+-/
 lemma step_valid'' (x : ℕ → ℝ) {a b : ℝ} (h : a ≤ b) :
   let p := step x a b in
   a ≤ p.1 :=
@@ -99,6 +120,9 @@ begin
   { refl },
 end
 
+/-
+Finally, we show that the size of the new interval is half the size of the original interval.
+-/
 lemma step_valid'''' (x : ℕ → ℝ) {a b : ℝ} :
   let p := step x a b in
   p.2 - p.1 = 1/2 * (b - a) :=
@@ -108,10 +132,17 @@ begin
   { linarith },
 end
 
+/-
+Then, we define the sequence of intervals. [a, b], [a₁, b₁], ...
+-/
 noncomputable def step_n (x : ℕ → ℝ) (a b : ℝ) : ℕ → ℝ × ℝ
 | 0 := (a, b)
 | (n + 1) := let p := step_n n in step x p.1 p.2
 
+/-
+We can show that the nth term of this is still a well defined sequence, by induction and the fact
+that we have already proven this for `step`.
+-/
 lemma step_n_valid (x : ℕ → ℝ) {a b : ℝ} (h : a ≤ b) (n : ℕ) :
   (step_n x a b n).1 ≤ (step_n x a b n).2 :=
 begin
@@ -122,9 +153,16 @@ begin
     exact ih }
 end
 
+/-
+We then define two sequences aₙ and bₙ, which are the lower and upper bounds of those intervals
+respectively.
+-/
 def seq_a (x : ℕ → ℝ) (a b : ℝ) (n : ℕ) : ℝ := (step_n x a b n).1
 def seq_b (x : ℕ → ℝ) (a b : ℝ) (n : ℕ) : ℝ := (step_n x a b n).2
 
+/-
+We note that aₙ is increasing, that is, a₀ ≤ a₁ ≤ a₂ ≤ ...
+-/
 lemma seq_a_increasing (x : ℕ → ℝ) (a b : ℝ) (ha : a ≤ b) : monotone (seq_a x a b) :=
 begin
   apply monotone_of_monotone_nat,
@@ -135,11 +173,17 @@ begin
   exact ha,
 end
 
+/-
+As a corollary, this means that the aₙ are bounded below by a₀ = a
+-/
 lemma a_le_seq_a (x : ℕ → ℝ) (a b : ℝ) (ha : a ≤ b) (n : ℕ) : a ≤ seq_a x a b n :=
 begin
   exact @seq_a_increasing x a b ha 0 n (nat.zero_le _),
 end
 
+/-
+We also note that bₙ is decreasing, that is b₀ ≥ b₁ ≥ ...
+-/
 lemma seq_b_decreasing (x : ℕ → ℝ) (a b : ℝ) (ha : a ≤ b) : 
   ∀ n m, n ≤ m → seq_b x a b m ≤ seq_b x a b n :=
 begin
@@ -153,14 +197,23 @@ begin
     exact ha }
 end
 
+/-
+And it follows that bₙ are bounded above by b₀ = b
+-/
 lemma seq_b_le_b (x : ℕ → ℝ) (a b : ℝ) (ha : a ≤ b) (n : ℕ) : seq_b x a b n ≤ b :=
 begin
   exact seq_b_decreasing x a b ha 0 n (nat.zero_le _),
 end
 
+/-
+An alternative statement for `step_n_valid` is that `aₙ ≤ bₙ` for all `n`.
+-/
 lemma seq_a_le_seq_b (x : ℕ → ℝ) (a b : ℝ) (ha : a ≤ b) (n : ℕ) : seq_a x a b n ≤ seq_b x a b n :=
 step_n_valid x ha n
 
+/-
+Then, aₙ is an increasing sequence, bounded above by `b`, so it must converge.
+-/
 lemma is_convergent_seq_a (x : ℕ → ℝ) (a b : ℝ) (ha : a ≤ b) : is_convergent (seq_a x a b) :=
 begin
   apply is_convergent_of_increasing_of_bdd_above b,
@@ -174,6 +227,9 @@ begin
     exact ha }
 end
 
+/-
+Similarly, bₙ is a decreasing sequence that is bounded below, and it must converge as well.
+-/
 lemma is_convergent_seq_b (x : ℕ → ℝ) (a b : ℝ) (ha : a ≤ b) : is_convergent (seq_b x a b) :=
 begin
   apply is_convergent_of_decreasing_of_bdd_below a,
@@ -188,6 +244,10 @@ begin
     exact ha }
 end
 
+/-
+An alternative statement of the halving of the sizes of the inverals is that 
+  bₙ₊₁ - aₙ₊₁ = 1/2 (bₙ - aₙ) 
+-/
 lemma seq_b_succ_sub_seq_a_succ {x : ℕ → ℝ} {a b : ℝ} (h : a ≤ b) (n : ℕ) :
   seq_b x a b n.succ - seq_a x a b n.succ = 1/2 * (seq_b x a b n - seq_a x a b n) :=
 begin
@@ -195,6 +255,12 @@ begin
   apply step_valid'''',
 end
 
+/-
+Then we get that aₙ and bₙ must tend to the same limit. To see this, suppose if aₙ → s and bₙ → t,
+then bₙ - aₙ → s - t. As a result, bₙ₊₁ - aₙ₊₁ → 1/2 (s - t) from the above. However, bₙ₊₁ - aₙ₊₁
+is also a subsequence of bₙ - aₙ, so it must tend to the same limit. Thus, 1/2 (s - t) = (s - t),
+and s = t.
+-/
 lemma seq_a_seq_b_limit_same {x : ℕ → ℝ} {a b : ℝ} (h : a ≤ b) (s t : ℝ)
   (hs : tendsto (seq_a x a b) at_top (𝓝 s))
   (ht : tendsto (seq_b x a b) at_top (𝓝 t)) : s = t :=
@@ -211,8 +277,11 @@ begin
   linarith,
 end
 
-lemma step_n_valid' {x : ℕ → ℝ} {a b : ℝ} (h : a ≤ b) (hx : set.infinite {i | x i ∈ set.Icc a b}) (n : ℕ) :
-  set.infinite {i | x i ∈ set.Icc (seq_a x a b n) (seq_b x a b n)} :=
+/-
+We can then prove that there are infinitely many `n` such that xₙ ∈ [aᵢ, bᵢ] for all i.
+-/
+lemma step_n_valid' {x : ℕ → ℝ} {a b : ℝ} (h : a ≤ b) (hx : set.infinite {i | x i ∈ set.Icc a b}) 
+  (n : ℕ) : set.infinite {i | x i ∈ set.Icc (seq_a x a b n) (seq_b x a b n)} :=
 begin
   induction n with k ih,
   { exact hx },
@@ -223,6 +292,10 @@ begin
     { exact ih } }
 end
 
+/-
+From this, the set of such `n` mustn't be bounded above. So no matter gow large `k` is, there is
+always an `n > k` such that xₙ ∈ [aᵢ, bᵢ]
+-/
 lemma exists_ge_mem_Icc {x : ℕ → ℝ} {a b : ℝ} (h : a ≤ b) 
   (hx : set.infinite {i | x i ∈ set.Icc a b}) (k m : ℕ) : 
   ∃ n > k, x n ∈ set.Icc (seq_a x a b m) (seq_b x a b m) :=
@@ -244,11 +317,18 @@ begin
   exact set.finite.subset (finset.finite_to_set _) h2,
 end
 
+/-
+We define `nᵢ` such that `nᵢ₊₁ > nᵢ` and that `x_nᵢ ∈ [aᵢ, bᵢ]` for all `i`. We have shown that such
+nᵢ always exists so this is well defined.
+-/
 noncomputable def n {x : ℕ → ℝ} {a b : ℝ} (h : a ≤ b) 
   (hx : set.infinite {i | x i ∈ set.Icc a b}) : ℕ → ℕ
 | 0 := nat.find $ exists_ge_mem_Icc h hx 0 0
 | (k + 1) := let p := n k in nat.find $ exists_ge_mem_Icc h hx p (k+1)
 
+/-
+Finally, we show that `n` satisfies the properties outlined above.
+-/
 lemma n_spec {x : ℕ → ℝ} {a b : ℝ} (h : a ≤ b)
   (hx : set.infinite {i | x i ∈ set.Icc a b}) (k : ℕ) :
   x (n h hx k) ∈ set.Icc (seq_a x a b k) (seq_b x a b k) :=
@@ -264,6 +344,11 @@ end
 
 end bolzano_weierstrass
 
+/-
+Now that we have this, Bolzano-Weierstrass is fairly straightforward. As each of the 
+`x_nᵢ ∈ [aᵢ, bᵢ]`, aᵢ ≤ x_nᵢ ≤ bᵢ, and that we've shown that aᵢ and bᵢ converge to the same limit,
+so x_nᵢ must converge to the same limit as well.
+-/
 theorem bolzano_weierstrass {x : ℕ → ℝ} (K : ℝ) (hx : ∀ i, |x i| ≤ K) :
   ∃ (n : ℕ → ℕ), (∀ i, n i < n (i + 1)) ∧ is_convergent (x ∘ n) :=
 begin
@@ -293,9 +378,9 @@ begin
     have := bolzano_weierstrass.seq_a_seq_b_limit_same hab t r ht hr,
     rw this at *,
     use r,
-    apply sandwich ht hr,
+    apply tendsto_of_le_of_le ht hr,
     { intro n,
       exact (bolzano_weierstrass.n_spec hab hx' n).1 },
     { intro n,
       exact (bolzano_weierstrass.n_spec hab hx' n).2 } }
-end
+end .
