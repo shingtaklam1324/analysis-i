@@ -13,6 +13,8 @@ First, we shall define the definition of convergence of a sequence. mathlib uses
 we will show the filter statement and the common definition are in fact equivalent. We state the
 theorems in terms of filters so that we can use the lemmas from mathlib as well when we don't want
 to prove them.
+
+NB: This is in mathlib as `metric.tendsto_at_top`
 -/
 lemma tendsto_seq_iff (x : ℕ → ℝ) (c : ℝ) :
   tendsto x at_top (𝓝 c) ↔ ∀ ε > 0, ∃ N, ∀ n ≥ N, |x n - c| < ε :=
@@ -164,6 +166,14 @@ begin
   linarith,
 end
 
+-- A useful lemma for strictly inceasing sequences
+lemma le_of_nat_strict_mono {n : ℕ → ℕ} (hn : ∀ i, n i < n (i + 1)) (k : ℕ) : k ≤ n k :=
+begin
+  induction k with d ih,
+  { exact nat.zero_le _ },
+  { exact lt_of_le_of_lt ih (hn _) }
+end
+
 /-
 Lemma 1.1 (ii)
 
@@ -172,11 +182,6 @@ If xₙ → a, and x_{n_j} is a subsequence, then it will also tend to a
 lemma tendsto_subseq {x : ℕ → ℝ} {a : ℝ} {n : ℕ → ℕ} (hn : ∀ k, n k < n (k+1)) 
   (hx : tendsto x at_top (𝓝 a)) : tendsto (x ∘ n) at_top (𝓝 a) :=
 begin
-  have : ∀ k, k ≤ n k,
-  { intro k,
-    induction k with d ih,
-    { exact nat.zero_le _ },
-    exact lt_of_le_of_lt ih (hn _) },
   rw tendsto_seq_iff at *,
   intros ε hε,
   cases hx ε hε with N hN,
@@ -184,7 +189,7 @@ begin
   intros k hk,
   rw function.comp_apply,
   apply hN,
-  exact le_trans hk (this _),
+  exact le_trans hk (le_of_nat_strict_mono hn _),
 end
 
 /-

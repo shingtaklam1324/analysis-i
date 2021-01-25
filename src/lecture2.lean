@@ -1,6 +1,6 @@
 import lecture1
 
-open_locale filter topological_space
+open_locale filter topological_space big_operators
 open filter
 
 open_locale classical
@@ -384,3 +384,137 @@ begin
     { intro n,
       exact (bolzano_weierstrass.n_spec hab hx' n).2 } }
 end .
+
+/-
+Definition of a Cauchy Sequence
+-/
+lemma cauchy_seq_iff (x : ℕ → ℝ) :
+  cauchy_seq x ↔ ∀ ε > 0, ∃ N, ∀ n m, N ≤ n → N ≤ m → |x n - x m| < ε :=
+metric.cauchy_seq_iff
+
+/-
+Lemma 1.4
+
+Every convergent sequence is Cauchy
+-/
+lemma cauchy_seq_of_is_convergent {x : ℕ → ℝ} (hx : is_convergent x) : cauchy_seq x :=
+begin
+  rw cauchy_seq_iff,
+  intros ε hε,
+  cases hx with a ha,
+  rw tendsto_seq_iff at ha,
+  cases ha (ε/2) (half_pos hε) with N hN,
+  use N,
+  intros n m hn hm,
+  have h1 := hN n hn,
+  have h2 := hN m hm,
+  calc |x n - x m| = |(x n - a) + (a - x m)| : by ring
+               ... ≤ |x n - a| + |a - x m| : abs_add _ _
+               ... = |x n - a| + |x m - a| : by rw abs_sub a
+               ... < ε : by linarith
+end
+
+/-
+Theorem 1.5
+
+Every Cauchy sequence is convergent
+-/
+
+/-
+First, we shall show that every Cauchy sequence is bounded.
+-/
+lemma bdd_of_is_cauchy {x : ℕ → ℝ} (hx : cauchy_seq x) : ∃ k, ∀ n, |x n| ≤ k :=
+begin
+  rw cauchy_seq_iff at hx,
+  cases hx 1 zero_lt_one with N₁ hN₁,
+  have h₁ : ∀ m ≥ N₁, |x m| < |x N₁| + 1,
+  { intros m hm,
+    specialize hN₁ m N₁ hm (le_refl _),
+    calc |x m| ≤ |x m - x N₁| + |x N₁| : _
+           ... < |x N₁| + 1 : _,
+    { convert abs_add _ _, ring },
+    { linarith } },
+  set S := (finset.range (N₁ + 1)).image (abs ∘ x) with hSdef,
+  have hS : S.nonempty,
+  { refine finset.nonempty.image _ (abs ∘ x),
+    use 0,
+    simp only [nat.succ_pos', finset.mem_range] },
+  set k := max (|x N₁| + 1) (S.max' hS) with hk,
+  use k,
+  intro n,
+    cases lt_or_le n N₁,
+    { have : |x n| ≤ S.max' hS,
+      { apply finset.le_max',
+        rw [hSdef, finset.mem_image],
+        use n,
+        split,
+        { rw [finset.mem_range], linarith },
+        { refl } },
+      refine le_trans this (le_max_right (|x N₁| + 1) (finset.max' S hS)) },
+    { have : |x n| ≤ |x N₁| + 1,
+      { apply le_of_lt,
+        apply h₁,
+        exact h },
+      refine le_trans this (le_max_left (|x N₁| + 1) (finset.max' S hS)) }
+end .
+
+theorem is_convergent_of_is_cauchy {x : ℕ → ℝ} (hx : cauchy_seq x) : is_convergent x :=
+begin
+  cases bdd_of_is_cauchy hx with k hk,
+  rcases bolzano_weierstrass k hk with ⟨n, h₁, ⟨a, h₂⟩⟩,
+  use a,
+  rw tendsto_seq_iff at ⊢ h₂,
+  intros ε hε,
+  rw cauchy_seq_iff at hx,
+  cases hx (ε/2) (half_pos hε) with N₁ hN₁,
+  cases h₂ (ε/2) (half_pos hε) with j₀ hj₀,
+  use max N₁ j₀,
+  intros j hj,
+  calc |x j - a| ≤ |x j - x (n j)| + |x (n j) - a| : _
+             ... < ε : _,
+  { convert abs_add _ _,
+    ring },
+  { have hnj : j ≤ n j,
+    { apply le_of_nat_strict_mono h₁ },
+    specialize hN₁ j (n j) (le_of_max_le_left hj) (le_trans (le_of_max_le_left hj) hnj),
+    specialize hj₀ j (le_of_max_le_right hj),
+    simp only [function.comp_app] at hj₀,
+    linarith }
+end .
+
+/-
+Series
+
+We say the sum is convergent if it the partial sums converge.
+-/
+def sum_convergent (x : ℕ → ℝ) := is_convergent (λ N, ∑ i in finset.range N, x i)
+
+/-
+Lemma 1.6 (i)
+   ∞        ∞                                 ∞
+If ∑ aₙ and ∑ bₙ both converges, then so does ∑ (αaₙ + βbₙ).
+   n=1       n=1                                n=1
+-/
+lemma sum_convergent_add {a b : ℕ → ℝ} (ha : sum_convergent a) (hb : sum_convergent b) (α β : ℝ):
+  sum_convergent (λ n, α * a n + β * b n) :=
+begin
+  cases ha with x hx,
+  cases hb with y hy,
+  use α * x + β * y,
+  simp_rw [finset.sum_add_distrib, ←finset.mul_sum],
+  apply tendsto.add,
+  { apply tendsto.const_mul,
+    exact hx },
+  { apply tendsto.const_mul,
+    exact hy },
+end
+
+/-
+Lemma 1.6 (ii)
+                                                   ∞                             ∞
+If there exists N such that ∀ n ≥ N, aₙ = bₙ, then ∑ aₙ converges if and only if ∑ bₙ converges.
+                                                   n=1                            n=1
+
+The argument here is clearly symmetric, so we shall prove the implication first, and the iff
+follows.
+-/
