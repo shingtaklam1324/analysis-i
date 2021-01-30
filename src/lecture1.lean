@@ -370,7 +370,7 @@ Lemma 1.2
 
 1/n → 0
 -/
-lemma tensto_one_div : tendsto (λ n, 1/(n + 1) : ℕ → ℝ) at_top (𝓝 0) :=
+lemma tendsto_one_div : tendsto (λ n, 1/(n + 1) : ℕ → ℝ) at_top (𝓝 0) :=
 begin
   have h1 : ∃ a, tendsto (λ n, 1/(n + 1) : ℕ → ℝ) at_top (𝓝 a) := is_convergent_of_decreasing_of_bdd_below 0 _ _,
   cases h1 with a ha,

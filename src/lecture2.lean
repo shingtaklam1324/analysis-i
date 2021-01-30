@@ -518,3 +518,15 @@ If there exists N such that ∀ n ≥ N, aₙ = bₙ, then ∑ aₙ converges if
 The argument here is clearly symmetric, so we shall prove the implication first, and the iff
 follows.
 -/
+lemma foo {a b : ℕ → ℝ} (h : ∃ N, ∀ n ≥ N, a n = b n)  (ha : sum_convergent a) : sum_convergent b :=
+begin
+  cases h with N hN,
+  cases ha with x hx,
+  use x - (∑ i in finset.range N, a i) + (∑ i in finset.range N, b i),
+  -- have : (λ n, ∑ i in finset.range n, b i) = 
+  -- λ n, (∑ i in finset.range n, a i) - (∑ i in finset.range N, a i) + (∑ i in finset.range N, b i),
+  -- { ext n,
+  --   simp only, },
+  -- rw this,
+  sorry,
+end
