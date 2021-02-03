@@ -8,6 +8,11 @@ import lecture1
 open filter
 open_locale filter topological_space
 
+/-
+One alternative definition of what a countinuous function is that if xₙ → a, then f(xₙ) → f(a).
+
+For now, we will use the mathlib definition of continuity, and show that it implies this.
+-/
 lemma tendsto_comp_of_continuous_at {a : ℝ} {f : ℝ → ℝ} (hf : continuous_at f a) 
   {x : ℕ → ℝ} (hx : tendsto x at_top (𝓝 a)) : tendsto (f ∘ x) at_top (𝓝 (f a)) :=
 begin
@@ -21,6 +26,9 @@ begin
   exact hδ (hN _ hn),
 end
 
+/-
+Squeeze
+-/
 lemma tendsto_of_le_of_le {x y z : ℕ → ℝ} {t : ℝ} (hx : tendsto x at_top (𝓝 t)) 
   (hz : tendsto z at_top (𝓝 t)) (hxy : ∀ n, x n ≤ y n) (hyz : ∀ n, y n ≤ z n) : 
   tendsto y at_top (𝓝 t) :=
@@ -42,6 +50,9 @@ begin
   linarith,
 end
 
+/-
+If the sequence us bounded below, then so is its limit
+-/
 lemma tendsto_lim_le_of_le' {x : ℕ → ℝ} {a A : ℝ} (hx₁ : ∀ n, A ≤ x n) 
   (hx₂ : tendsto x at_top (𝓝 a)) : A ≤ a :=
 begin
@@ -70,52 +81,54 @@ when f : ℝ → ℝ. If we instead had f : set.Icc a b → ℝ, then it would b
 lemma ivt {a b : ℝ} (h : a < b) (f : ℝ → ℝ) (hf : continuous f) (hfab : f a < f b) 
   {η : ℝ} (hη : η ∈ set.Ioo (f a) (f b)) : ∃ c ∈ set.Icc a b, f c = η :=
 begin
+  -- Let S be the set of all x such that f(x) < η
   let S := {x | f x < η ∧ x ∈ set.Icc a b},
-  have hS₁ : ∃ k, k ∈ S,
-  { use [a, hη.1, le_refl _, le_of_lt h] },
-  have hS₂ : ∃ k, ∀ x ∈ S, x ≤ k,
-  { use b,
-    rintros x ⟨-, -, hx⟩,
-    exact hx },
+  -- S is nonempty
+  have hS₁ : ∃ k, k ∈ S := ⟨a, hη.1, le_refl _, le_of_lt h⟩,
+  -- and bounded above, so Sup S exists.
+  have hS₂ : ∃ k, ∀ x ∈ S, x ≤ k := ⟨b, λ _ ⟨_, _, hx⟩, hx⟩,
   have hbS : b ∉ S,
   { rintro ⟨h, -⟩,
     cases hη,
     linarith },
+  -- Let c := Sup S.
   let c := Sup S,
-  have hac : a ≤ c,
-  { exact real.le_Sup _ hS₂ ⟨hη.1, le_refl _, le_of_lt h⟩ },
-  have hbc : c ≤ b,
-  { apply real.Sup_le_ub _ hS₁,
-    rintros x ⟨-, -, hx⟩,
-    exact hx },
-  have hcontc : continuous_at f c,
-  { exact hf.continuous_at },
+  -- Then a ≤ c ≤ b
+  have hac : a ≤ c := real.le_Sup _ hS₂ ⟨hη.1, le_refl _, le_of_lt h⟩,
+  have hbc : c ≤ b := real.Sup_le_ub _ hS₁ (λ x ⟨_, _, hx⟩, hx),
+  -- We also have that f(x) is continuous at c
+  have hcontc : continuous_at f c := hf.continuous_at,
+  -- Now, we claim that f(c) = η
   use c,
-  refine ⟨⟨real.le_Sup S hS₂ ⟨hη.1, le_refl _, le_of_lt h⟩, _⟩, _⟩,
-  { apply real.Sup_le_ub S hS₁,
-    rintros y ⟨-, -, hy⟩,
-    exact hy },
+  refine ⟨⟨real.le_Sup S hS₂ ⟨hη.1, le_refl _, le_of_lt h⟩, hbc⟩, _⟩,
+  -- We will do this by showing f(c) ≤ η, and η ≤ f(c). However the proof for η ≤ f(c) requires 
+  -- f(c) ≤ η, so we prove this separately.
   have hcη : f c ≤ η,
+  -- Let c₂(n) := c - 1/n
   { let c₂ : ℕ → ℝ := λ n, c - (1/(n+1)),
+    -- Then c₂(n) → c as n → ∞
     have hc₂ : tendsto c₂ at_top (𝓝 c),
     { convert @filter.tendsto.sub ℕ ℝ _ _ _ (λ n, c) (λ n, 1/(n+1)) _ c 0 tendsto_const_nhds tendsto_one_div,
       exact (sub_zero _).symm, },
+    -- and for all n, c₂(n) < c
     have hc₂' : ∀ n, c₂ n < c,
     { intro n,
       change c - (1/(n+1)) < c,
       simp only [one_div, sub_lt_self_iff, inv_pos],
       linarith [@nat.cast_nonneg ℝ _ n] },
+    -- Then, for each n, there exists some x ∈ S such that c₂(n) < x ≤ c, as C = Sup S.
     have hc₂'' : ∀ n, ∃ x ∈ S, c₂ n < x ∧ x ≤ c,
     { intro n,
-      have : c₂ n < Sup S := hc₂' n,
-      rw real.lt_Sup _ hS₁ hS₂ at this,
-      rcases this with ⟨z, hz₁, hz₂⟩,
+      rcases (real.lt_Sup _ hS₁ hS₂).mp (hc₂' n) with ⟨z, hz₁, hz₂⟩,
       use [z, hz₁, hz₂, real.le_Sup _ hS₂ hz₁] }, 
+    -- Using this, we can define a sequence xₙ.
     let x : ℕ → ℝ := λ n, classical.some (hc₂'' n),
+    -- Next, we can show that for all n, f(xₙ) < η.
     have hx₁ : ∀ n, f (x n) < η,
     { intro n,
       rcases classical.some_spec (hc₂'' n) with ⟨⟨hx : f (x n) < η, -⟩, -⟩,
       exact hx },
+    -- and by the squeeze theorem, xₙ → c.
     have hx₂ : tendsto x at_top (𝓝 c),
     { apply tendsto_of_le_of_le hc₂ tendsto_const_nhds,
       { intro n,
@@ -124,10 +137,12 @@ begin
       { intro n,
         rcases classical.some_spec (hc₂'' n) with ⟨⟨-, -⟩, -, hx : x n ≤ c⟩,
         exact hx } },
+    -- so now we get that f(xₙ) → f(c) and f(c) ≤ η.
     apply tendsto_lim_le_of_le,
     { intro n,
       apply le_of_lt (hx₁ n) },
     { exact tendsto_comp_of_continuous_at hcontc hx₂ } },
+  -- Now, all we need to do is to show that η ≤ f(c).
   { apply le_antisymm hcη,
     have hc₁ : c ≤ b,
     { apply real.Sup_le_ub _ hS₁,
@@ -159,8 +174,7 @@ begin
     { intro i,
       split,
       { change a ≤ c + 1/(n + i + 1),
-        have h₁: a ≤ c,
-        { exact real.le_Sup _ hS₂ ⟨hη.1, le_refl _, le_of_lt h⟩ },
+        have h₁: a ≤ c := real.le_Sup _ hS₂ ⟨hη.1, le_refl _, le_of_lt h⟩,
         have h₂ : (0 : ℝ) < 1/(n + i + 1),
         { rw one_div_pos,
           linarith [@nat.cast_nonneg ℝ _ n, @nat.cast_nonneg ℝ _ i] },
@@ -183,6 +197,5 @@ begin
         linarith [@nat.cast_nonneg ℝ _ n, @nat.cast_nonneg ℝ _ i] },
       change c + 1/(n+i+1) ≤ c at hxc,
       linarith },
-    apply tendsto_lim_le_of_le' hx₃,
-    exact tendsto_comp_of_continuous_at hcontc hx₁, }
+    exact tendsto_lim_le_of_le' hx₃ (tendsto_comp_of_continuous_at hcontc hx₁), }
 end
